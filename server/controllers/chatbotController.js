@@ -1,0 +1,4 @@
+const ChatMessage=require('../models/ChatMessage');const {build}=require('../services/chatbotService');const {sendSuccess,sendError}=require('../utils/api');
+exports.message=async(req,res)=>{try{const message=String(req.body.message||'').trim();if(!message)return sendError(res,'Message cannot be empty',400);const result=await build(req.user,message);await ChatMessage.create({user:req.user._id,role:req.user.role,message,sender:'USER'});await ChatMessage.create({user:req.user._id,role:req.user.role,message:result.reply,sender:'BOT'});sendSuccess(res,result,'BillBot response')}catch(e){sendError(res,'BillBot could not process that request right now',500)}};
+exports.history=async(req,res)=>sendSuccess(res,await ChatMessage.find({user:req.user._id}).sort({createdAt:1}).limit(100));
+exports.clear=async(req,res)=>{await ChatMessage.deleteMany({user:req.user._id});sendSuccess(res,null,'Chat history cleared')};

@@ -1,0 +1,2 @@
+const mongoose=require('mongoose');
+const schema=new mongoose.Schema({name:{type:String,required:true,trim:true},type:{type:String,enum:['PRODUCT','SERVICE'],required:true},description:String,price:{type:Number,min:0,required:true},taxRate:{type:Number,min:0,max:100,default:18},unit:{type:String,default:'unit'},status:{type:String,enum:['ACTIVE','INACTIVE'],default:'ACTIVE'}},{timestamps:true}); schema.index({name:'text',description:'text'}); module.exports=mongoose.model('Product',schema);

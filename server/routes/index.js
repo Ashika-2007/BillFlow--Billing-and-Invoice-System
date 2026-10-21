@@ -1,0 +1,14 @@
+const express=require('express');const auth=require('../middleware/auth'),roles=require('../middleware/roles');const r=express.Router();
+const A=require('../controllers/authController'),C=require('../controllers/clientController'),P=require('../controllers/productController'),I=require('../controllers/invoiceController'),Pay=require('../controllers/paymentController'),D=require('../controllers/dashboardController'),R=require('../controllers/reportController'),N=require('../controllers/notificationController'),S=require('../controllers/settingsController'),B=require('../controllers/chatbotController');
+const route=(path,method,fn,...mw)=>r[method](path,...mw,fn);
+route('/auth/register','post',A.register);route('/auth/login','post',A.login);route('/auth/me','get',A.me,auth);
+route('/clients','get',C.list,auth);route('/clients/:id','get',C.get,auth);route('/clients','post',C.create,auth,roles('ADMIN','STAFF'));route('/clients/:id','put',C.update,auth,roles('ADMIN','STAFF'));route('/clients/:id','delete',C.remove,auth,roles('ADMIN'));
+route('/products','get',P.list,auth);route('/products/:id','get',P.get,auth);route('/products','post',P.create,auth,roles('ADMIN','STAFF'));route('/products/:id','put',P.update,auth,roles('ADMIN','STAFF'));route('/products/:id','delete',P.remove,auth,roles('ADMIN'));
+route('/invoices','get',I.list,auth);route('/invoices/:id','get',I.get,auth);route('/invoices','post',I.create,auth,roles('ADMIN','STAFF'));route('/invoices/:id','put',I.update,auth,roles('ADMIN','STAFF'));route('/invoices/:id','delete',I.remove,auth,roles('ADMIN'));route('/invoices/:id/refresh','post',I.refresh,auth);
+route('/payments','get',Pay.list,auth);route('/payments/:id','get',Pay.get,auth);route('/payments','post',Pay.create,auth,roles('ADMIN','STAFF'));route('/payments/:id','put',Pay.update,auth,roles('ADMIN','STAFF'));route('/payments/:id','delete',Pay.remove,auth,roles('ADMIN'));
+route('/dashboard/stats','get',D.stats,auth);route('/dashboard/revenue','get',D.revenue,auth);route('/dashboard/recent','get',D.recent,auth);
+route('/reports/revenue','get',R.revenue,auth);route('/reports/invoices','get',R.invoices,auth);route('/reports/clients','get',R.clients,auth);
+route('/notifications','get',N.list,auth);route('/notifications/:id/read','put',N.read,auth);route('/notifications/reminders','get',N.reminders,auth);
+route('/settings/tax','get',S.getTax,auth);route('/settings/tax','put',S.updateTax,auth,roles('ADMIN'));route('/settings/users','get',S.users,auth,roles('ADMIN'));route('/settings/users/:id','put',S.updateUser,auth,roles('ADMIN'));
+route('/chatbot/message','post',B.message,auth);route('/chatbot/history','get',B.history,auth);route('/chatbot/history','delete',B.clear,auth);
+module.exports=r;

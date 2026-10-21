@@ -1,0 +1,1 @@
+const mongoose=require('mongoose'); const schema=new mongoose.Schema({name:{type:String,required:true},rates:{type:[Number],default:[0,5,12,18,28]},defaultRate:{type:Number,default:18},updatedBy:{type:mongoose.Schema.Types.ObjectId,ref:'User'}},{timestamps:true}); module.exports=mongoose.model('TaxSetting',schema);

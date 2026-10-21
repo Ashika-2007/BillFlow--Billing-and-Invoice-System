@@ -1,0 +1,1 @@
+import api from './api';export const sendMessage=m=>api.post('/chatbot/message',{message:m});export const getHistory=()=>api.get('/chatbot/history');export const clearHistory=()=>api.delete('/chatbot/history');

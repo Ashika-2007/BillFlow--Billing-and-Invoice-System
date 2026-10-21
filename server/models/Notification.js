@@ -1,0 +1,2 @@
+const mongoose=require('mongoose');
+const schema=new mongoose.Schema({user:{type:mongoose.Schema.Types.ObjectId,ref:'User',required:true},title:{type:String,required:true},message:{type:String,required:true},type:{type:String,enum:['INFO','SUCCESS','WARNING','DANGER'],default:'INFO'},read:{type:Boolean,default:false},relatedInvoice:{type:mongoose.Schema.Types.ObjectId,ref:'Invoice',default:null}},{timestamps:true}); module.exports=mongoose.model('Notification',schema);
