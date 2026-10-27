@@ -1,3 +1,109 @@
-import React from 'react';
-import {useState} from 'react';import {useNavigate,Link} from 'react-router-dom';import {useAuth} from '../context/AuthContext';import {Receipt,Eye,EyeOff} from 'lucide-react';
-export default function Login(){const [form,setForm]=useState({email:'',password:''}),[show,setShow]=useState(false),[error,setError]=useState(''),[busy,setBusy]=useState(false);const {login}=useAuth();const nav=useNavigate();const submit=async e=>{e.preventDefault();setBusy(true);setError('');try{await login(form);nav('/dashboard')}catch(e){setError(e.response?.data?.message||'Unable to sign in')}finally{setBusy(false)}};return <div className="auth-page"><div className="auth-visual"><div className="auth-brand"><div className="brand-mark">B</div> BillFlow</div><div><h1>Billing that feels<br/><span>effortless.</span></h1><p>Invoices, payments and business visibility in one focused workspace.</p></div><div className="auth-orbit"><Receipt size={130}/></div></div><div className="auth-card"><div className="auth-mobile-logo"><div className="brand-mark">B</div> BillFlow</div><div className="eyebrow">WELCOME BACK</div><h2>Sign in to your workspace</h2><p className="muted">Use your billing account to continue.</p>{error&&<div className="form-error">{error}</div>}<form onSubmit={submit} className="form"><label>Email<input type="email" required value={form.email} onChange={e=>setForm({...form,email:e.target.value})} placeholder="you@company.com"/></label><label>Password<div className="password-field"><input type={show?'text':'password'} required value={form.password} onChange={e=>setForm({...form,password:e.target.value})}/><button type="button" onClick={()=>setShow(!show)}>{show?<EyeOff size={17}/>:<Eye size={17}/>}</button></div></label><button className="btn btn-primary btn-full" disabled={busy}>{busy?'Signing in...':'Sign in'}</button></form><p className="auth-switch">Don’t have an account? <Link to="/register">Create one</Link></p><div className="demo-box"><strong>Demo accounts</strong><span>Admin: admin@billing.com / Admin@123</span><span>Staff: staff@billing.com / Staff@123</span><span>Client: client@billing.com / Client@123</span></div></div></div>}
+import React, { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { Eye, EyeOff, ArrowRight, Mail, Lock } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import AuthLayout from '../layouts/AuthLayout';
+import Button from '../components/Button';
+
+const DEMO = [
+  { role: 'Admin', email: 'admin@billing.com', password: 'Admin@123' },
+  { role: 'Staff', email: 'staff@billing.com', password: 'Staff@123' },
+  { role: 'Client', email: 'client@billing.com', password: 'Client@123' }
+];
+
+export default function Login() {
+  const [form, setForm] = useState({ email: '', password: '' });
+  const [show, setShow] = useState(false);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const { login } = useAuth();
+  const nav = useNavigate();
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setBusy(true);
+    setError('');
+    try {
+      await login(form);
+      nav('/dashboard');
+    } catch (e) {
+      setError(e.response?.data?.message || 'Unable to sign in');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <AuthLayout>
+      <div className="eyebrow">Welcome back</div>
+      <h2>Sign in to your workspace</h2>
+      <p className="muted">Use your billing account to continue.</p>
+
+      {error && (
+        <div className="form-error" role="alert">
+          {error}
+        </div>
+      )}
+
+      <form onSubmit={submit} className="form">
+        <label>
+          Email
+          <span className="input-icon">
+            <Mail size={16} aria-hidden="true" />
+            <input
+              type="email"
+              required
+              autoComplete="email"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              placeholder="you@company.com"
+            />
+          </span>
+        </label>
+        <label>
+          Password
+          <div className="password-field">
+            <Lock size={16} className="field-lead" aria-hidden="true" />
+            <input
+              type={show ? 'text' : 'password'}
+              required
+              autoComplete="current-password"
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              placeholder="Enter your password"
+            />
+            <button type="button" onClick={() => setShow(!show)} aria-label={show ? 'Hide password' : 'Show password'}>
+              {show ? <EyeOff size={17} /> : <Eye size={17} />}
+            </button>
+          </div>
+        </label>
+        <Button type="submit" full loading={busy}>
+          {busy ? 'Signing in...' : 'Sign in'}
+          {!busy && <ArrowRight size={16} aria-hidden="true" />}
+        </Button>
+      </form>
+
+      <p className="auth-switch">
+        Don’t have an account? <Link to="/register">Create one</Link>
+      </p>
+
+      <div className="demo-box">
+        <strong>Demo accounts</strong>
+        <span className="demo-hint">Select one to fill the form</span>
+        {DEMO.map((d) => (
+          <button
+            type="button"
+            key={d.role}
+            className="demo-row"
+            onClick={() => setForm({ email: d.email, password: d.password })}
+          >
+            <b>{d.role}</b>
+            <span>
+              {d.email} / {d.password}
+            </span>
+          </button>
+        ))}
+      </div>
+    </AuthLayout>
+  );
+}

@@ -1,0 +1,39 @@
+/* =========================================================
+   PRINT — only the invoice document is printed
+========================================================= */
+@media print {
+  @page { margin: 12mm; }
+
+  body {
+    background: #fff;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .sidebar,
+  .topbar,
+  .scrim,
+  .skip-link,
+  .billbot-fab,
+  .chat-panel,
+  .toast-region,
+  .no-print { display: none !important; }
+
+  .app-shell { display: block; }
+  .main { display: block; }
+  .content { max-width: none; padding: 0; }
+  .page-enter { animation: none; }
+
+  .invoice-paper {
+    max-width: none;
+    padding: 0;
+    border: 0;
+    box-shadow: none;
+    border-radius: 0;
+    overflow: visible;
+  }
+  .invoice-paper::before { height: 4px; }
+  .invoice-paper .table-wrap { margin: 0; width: 100%; overflow: visible; }
+  .invoice-paper th:first-child, .invoice-paper td:first-child { padding-left: 0; }
+  .invoice-paper th:last-child, .invoice-paper td:last-child { padding-right: 0; }
+  tr, .invoice-bottom { break-inside: avoid; }
+}

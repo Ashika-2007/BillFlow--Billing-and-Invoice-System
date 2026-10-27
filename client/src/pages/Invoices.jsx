@@ -1,5 +1,150 @@
-import React from 'react';
-import {useEffect,useState} from 'react';import {Plus,Eye,Pencil,Trash2} from 'lucide-react';import {Link} from 'react-router-dom';import api from '../services/api';import PageHeader from '../components/PageHeader';import SearchBar from '../components/SearchBar';import StatusBadge from '../components/StatusBadge';import Pagination from '../components/Pagination';import LoadingSpinner from '../components/LoadingSpinner';import EmptyState from '../components/EmptyState';
-const money=n=>new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR',maximumFractionDigits:0}).format(n||0);
-export default function Invoices(){const [rows,setRows]=useState([]),[q,setQ]=useState(''),[status,setStatus]=useState(''),[loading,setLoading]=useState(true),[page,setPage]=useState(1);const load=()=>{setLoading(true);api.get('/invoices',{params:{search:q,status}}).then(r=>setRows(r.data.data)).finally(()=>setLoading(false))};useEffect(()=>{setPage(1);const t=setTimeout(load,200);return()=>clearTimeout(t)},[q,status]);const del=async id=>{if(confirm('Cancel this invoice?'))try{await api.delete(`/invoices/${id}`);load()}catch(e){alert(e.response?.data?.message||'Unable to cancel')};};const pageSize=10;const pageRows=rows.slice((page-1)*pageSize,page*pageSize);const pages=Math.max(1,Math.ceil(rows.length/pageSize));return <><PageHeader eyebrow="BILLING" title="Invoices" description="Create, track and manage every customer invoice." actions={<Link className="btn btn-primary" to="/invoices/new"><Plus size={17}/> Create invoice</Link>}/><div className="toolbar"><SearchBar value={q} onChange={setQ} placeholder="Search invoice number..."/><select value={status} onChange={e=>setStatus(e.target.value)}><option value="">All statuses</option>{['DRAFT','SENT','PENDING','PARTIALLY_PAID','PAID','OVERDUE','CANCELLED'].map(s=><option key={s}>{s}</option>)}</select></div><><div className="panel">{loading?<LoadingSpinner label="Loading invoices..."/>:!rows.length?<EmptyState title="No invoices found."/>:<div className="table-wrap"><table><thead><tr><th>Invoice</th><th>Client</th><th>Issued</th><th>Due</th><th>Amount</th><th>Status</th><th></th></tr></thead><tbody>{pageRows.map(i=><tr key={i._id}><td><Link className="link" to={`/invoices/${i._id}`}>{i.invoiceNumber}</Link></td><td>{i.client?.companyName||i.client?.name}</td><td>{new Date(i.issueDate).toLocaleDateString('en-IN')}</td><td>{new Date(i.dueDate).toLocaleDateString('en-IN')}</td><td><strong>{money(i.totalAmount)}</strong></td><td><StatusBadge status={i.status}/></td><td><div className="row-actions"><Link className="icon-btn" to={`/invoices/${i._id}`}><Eye size={16}/></Link><Link className="icon-btn" to={`/invoices/${i._id}/edit`}><Pencil size={16}/></Link><button className="icon-btn danger" onClick={()=>del(i._id)}><Trash2 size={16}/></button></div></td></tr>)}</tbody></table></div>}</div><Pagination page={page} pages={pages} onChange={setPage}/></></>}
+import React, { useEffect, useState } from 'react';
+import { Plus, Eye, Pencil, Trash2, ReceiptText } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import api from '../services/api';
+import { money, formatDate } from '../utils/format';
+import { useAuth } from '../context/AuthContext';
+import { useToast } from '../components/Toast';
+import { useConfirm } from '../components/ConfirmDialog';
+import PageHeader from '../components/PageHeader';
+import SearchBar from '../components/SearchBar';
+import Button from '../components/Button';
+import StatusBadge from '../components/StatusBadge';
+import Pagination from '../components/Pagination';
+import EmptyState from '../components/EmptyState';
+import DataTable from '../components/DataTable';
 
+const PAGE_SIZE = 10;
+const STATUSES = ['DRAFT', 'SENT', 'PENDING', 'PARTIALLY_PAID', 'PAID', 'OVERDUE', 'CANCELLED'];
+
+export default function Invoices() {
+  const { user } = useAuth();
+  const toast = useToast();
+  const confirm = useConfirm();
+  const canManage = user?.role === 'ADMIN' || user?.role === 'STAFF';
+  const isAdmin = user?.role === 'ADMIN';
+
+  const [rows, setRows] = useState([]);
+  const [q, setQ] = useState('');
+  const [status, setStatus] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+
+  const load = () => {
+    setLoading(true);
+    api
+      .get('/invoices', { params: { search: q, status } })
+      .then((r) => setRows(r.data.data))
+      .catch((e) => toast.error(e.response?.data?.message || 'Unable to load invoices'))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    setPage(1);
+    const t = setTimeout(load, 200);
+    return () => clearTimeout(t);
+  }, [q, status]);
+
+  const del = async (inv) => {
+    const ok = await confirm({
+      title: 'Cancel invoice?',
+      message: `${inv.invoiceNumber} will be marked as cancelled and can no longer be edited.`,
+      confirmLabel: 'Cancel invoice',
+      cancelLabel: 'Keep invoice'
+    });
+    if (!ok) return;
+    try {
+      await api.delete(`/invoices/${inv._id}`);
+      toast.success(`${inv.invoiceNumber} cancelled`);
+      load();
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Unable to cancel');
+    }
+  };
+
+  const pageRows = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const locked = (inv) => ['PAID', 'CANCELLED'].includes(inv.status);
+
+  const columns = [
+    {
+      key: 'invoiceNumber',
+      label: 'Invoice',
+      render: (i) => (
+        <Link className="link mono" to={`/invoices/${i._id}`}>
+          {i.invoiceNumber}
+        </Link>
+      )
+    },
+    { key: 'client', label: 'Client', className: 'cell-wrap', render: (i) => i.client?.companyName || i.client?.name },
+    { key: 'issueDate', label: 'Issued', render: (i) => formatDate(i.issueDate) },
+    { key: 'dueDate', label: 'Due', render: (i) => formatDate(i.dueDate) },
+    { key: 'totalAmount', label: 'Amount', align: 'right', className: 'num', render: (i) => <strong>{money(i.totalAmount)}</strong> },
+    { key: 'status', label: 'Status', render: (i) => <StatusBadge status={i.status} /> },
+    {
+      key: 'actions',
+      label: <span className="sr-only">Actions</span>,
+      align: 'right',
+      render: (i) => (
+        <div className="row-actions">
+          <Link className="icon-btn" to={`/invoices/${i._id}`} aria-label={`View ${i.invoiceNumber}`} title="View">
+            <Eye size={16} />
+          </Link>
+          {canManage &&
+            (locked(i) ? (
+              <span className="icon-btn is-disabled" aria-disabled="true" title="Paid or cancelled invoices can’t be edited">
+                <Pencil size={16} />
+              </span>
+            ) : (
+              <Link className="icon-btn" to={`/invoices/${i._id}/edit`} aria-label={`Edit ${i.invoiceNumber}`} title="Edit">
+                <Pencil size={16} />
+              </Link>
+            ))}
+          {isAdmin && !locked(i) && (
+            <button className="icon-btn danger" aria-label={`Cancel ${i.invoiceNumber}`} title="Cancel invoice" onClick={() => del(i)}>
+              <Trash2 size={16} />
+            </button>
+          )}
+        </div>
+      )
+    }
+  ];
+
+  return (
+    <>
+      <PageHeader
+        eyebrow="Billing"
+        title="Invoices"
+        description={canManage ? 'Create, track and manage every customer invoice.' : 'Review your invoices and download copies.'}
+        actions={canManage && <Button to="/invoices/new" icon={Plus}>Create invoice</Button>}
+      />
+      <div className="toolbar">
+        <SearchBar value={q} onChange={setQ} placeholder="Search invoice number..." />
+        <select value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Filter by status">
+          <option value="">All statuses</option>
+          {STATUSES.map((s) => (
+            <option key={s} value={s}>{s.replaceAll('_', ' ')}</option>
+          ))}
+        </select>
+        {!loading && <span className="toolbar-count">{rows.length} {rows.length === 1 ? 'invoice' : 'invoices'}</span>}
+      </div>
+      <div className="panel flush">
+        <DataTable
+          columns={columns}
+          rows={pageRows}
+          loading={loading}
+          caption="Invoices"
+          empty={
+            <EmptyState
+              icon={ReceiptText}
+              title={q || status ? 'No invoices match your filters.' : 'No invoices found.'}
+              description={q || status ? 'Clear the search or choose a different status.' : canManage ? 'Create your first invoice to get paid.' : 'Invoices issued to you will appear here.'}
+              action={canManage && !q && !status && <Button to="/invoices/new" icon={Plus}>Create invoice</Button>}
+            />
+          }
+        />
+      </div>
+      <Pagination page={page} pages={pages} onChange={setPage} total={rows.length} pageSize={PAGE_SIZE} />
+    </>
+  );
+}

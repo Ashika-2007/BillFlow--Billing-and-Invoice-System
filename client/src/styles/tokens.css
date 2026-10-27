@@ -1,0 +1,77 @@
+/* =========================================================
+   DESIGN TOKENS
+   Identity: ledger & paper — warm neutrals, deep ink-green,
+   one confident teal. Semantic colours are reserved for status.
+========================================================= */
+:root {
+  color-scheme: light;
+
+  /* Ink (sidebar, featured surfaces) */
+  --ink-950: #0b1816;
+  --ink-900: #10231f;
+  --ink-800: #17332d;
+  --ink-700: #21473f;
+
+  /* Brand */
+  --brand: #0e7c6b;
+  --brand-hover: #0a6658;
+  --brand-active: #085648;
+  --brand-soft: #e3f3ef;
+  --brand-ring: rgba(14, 124, 107, 0.28);
+  --mint: #5eead4;
+  --mint-soft: #a7e3d6;
+
+  /* Surfaces */
+  --bg: #f5f4ef;
+  --surface: #ffffff;
+  --surface-2: #faf9f5;
+  --border: #e4e1d6;
+  --border-strong: #cfcbbd;
+
+  /* Text (all ≥ 4.5:1 on --surface and --bg) */
+  --text: #15211e;
+  --text-soft: #44524e;
+  --muted: #5f6c68;
+
+  /* Semantic */
+  --success: #166534;
+  --success-bg: #e4f4e8;
+  --warning: #8a4b0a;
+  --warning-bg: #fdf1d8;
+  --danger: #b42318;
+  --danger-strong: #9f1d1d;
+  --danger-bg: #fce8e6;
+  --info: #1e4fa0;
+  --info-bg: #e6eefb;
+  --violet: #4b3d9e;
+  --violet-bg: #ece9fa;
+  --neutral: #454f4c;
+  --neutral-bg: #ebeae4;
+
+  /* Type */
+  --font-sans: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-serif: 'Newsreader Variable', 'Newsreader', Georgia, 'Times New Roman', serif;
+  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace;
+
+  /* Shape */
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 14px;
+
+  /* Depth */
+  --shadow-xs: 0 1px 2px rgba(21, 33, 30, 0.05);
+  --shadow-sm: 0 1px 2px rgba(21, 33, 30, 0.05), 0 1px 1px rgba(21, 33, 30, 0.03);
+  --shadow: 0 1px 2px rgba(21, 33, 30, 0.04), 0 8px 24px -8px rgba(21, 33, 30, 0.1);
+  --shadow-lg: 0 2px 4px rgba(21, 33, 30, 0.05), 0 24px 48px -12px rgba(21, 33, 30, 0.22);
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --t-fast: 140ms;
+  --t-base: 220ms;
+  --t-slow: 420ms;
+
+  /* Layout */
+  --sidebar-w: 264px;
+  --topbar-h: 64px;
+}

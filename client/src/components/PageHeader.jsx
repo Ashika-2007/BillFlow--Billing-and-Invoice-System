@@ -1,38 +1,14 @@
 import React from 'react';
 
-export default function PageHeader({
-  eyebrow,
-  title,
-  description,
-  actions
-}) {
+export default function PageHeader({ eyebrow, title, description, actions }) {
   return (
-    <div className="page-header">
-
-      <div>
-        {eyebrow && (
-          <div className="eyebrow">
-            {eyebrow}
-          </div>
-        )}
-
-        <h1>
-          {title}
-        </h1>
-
-        {description && (
-          <p>
-            {description}
-          </p>
-        )}
+    <header className="page-header">
+      <div className="page-header-text">
+        {eyebrow && <div className="eyebrow">{eyebrow}</div>}
+        <h1>{title}</h1>
+        {description && <p>{description}</p>}
       </div>
-
-      {actions && (
-        <div className="header-actions">
-          {actions}
-        </div>
-      )}
-
-    </div>
+      {actions && <div className="header-actions">{actions}</div>}
+    </header>
   );
 }

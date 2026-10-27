@@ -1,8 +1,7 @@
-import StatusBadge from '../components/StatusBadge';
 import React, { useEffect, useState } from 'react';
-
+import { Link } from 'react-router-dom';
 import {
-  DollarSign,
+  Wallet,
   FileText,
   Clock3,
   AlertTriangle,
@@ -13,119 +12,70 @@ import {
   ReceiptText,
   CreditCard,
   UserPlus,
-  Sparkles,
   TrendingUp,
-  Activity,
-  CalendarDays
+  CalendarDays,
+  Banknote
 } from 'lucide-react';
-
-import { Link } from 'react-router-dom';
-
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell
-} from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, CartesianGrid } from 'recharts';
 
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { money, compactMoney, formatDate, formatMonth, greeting, humanize } from '../utils/format';
+import { STATUS_COLORS } from '../utils/status';
+import useReducedMotion from '../hooks/useReducedMotion';
 
-import LoadingSpinner from '../components/LoadingSpinner';
+import PageHeader from '../components/PageHeader';
+import Button from '../components/Button';
+import StatCard from '../components/StatCard';
+import StatusBadge from '../components/StatusBadge';
+import AnimatedNumber from '../components/AnimatedNumber';
+import Sparkline from '../components/Sparkline';
+import ChartTooltip from '../components/ChartTooltip';
 import ErrorState from '../components/ErrorState';
+import EmptyState from '../components/EmptyState';
+import DataTable from '../components/DataTable';
+import Avatar from '../components/Avatar';
+import Reveal from '../components/Reveal';
+import { Skeleton, CardSkeleton } from '../components/Skeleton';
 
-
-const money = n =>
-  new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0
-  }).format(n || 0);
-
-
-/* =========================================================
-   ANIMATED NUMBER
-========================================================= */
-
-function AnimatedNumber({
-  value,
-  duration = 900
-}) {
-  const [display, setDisplay] = useState(0);
-
-  useEffect(() => {
-    const numericValue = Number(value) || 0;
-
-    const startTime = performance.now();
-
-    const animate = currentTime => {
-      const progress = Math.min(
-        (currentTime - startTime) / duration,
-        1
-      );
-
-      const eased =
-        1 - Math.pow(1 - progress, 3);
-
-      setDisplay(
-        Math.floor(
-          numericValue * eased
-        )
-      );
-
-      if (progress < 1) {
-        requestAnimationFrame(animate);
-      }
-    };
-
-    requestAnimationFrame(animate);
-  }, [value, duration]);
-
+function DashboardSkeleton() {
   return (
-    <>
-      {display.toLocaleString('en-IN')}
-    </>
+    <div role="status" aria-label="Preparing your dashboard">
+      <div className="page-header">
+        <div className="page-header-text">
+          <Skeleton width={120} height={12} />
+          <Skeleton width={320} height={34} style={{ marginTop: 14 }} />
+          <Skeleton width={420} height={14} style={{ marginTop: 14 }} />
+        </div>
+      </div>
+      <div className="kpi-grid">
+        <div className="span-6"><CardSkeleton height={150} /></div>
+        <div className="span-3"><CardSkeleton height={150} /></div>
+        <div className="span-3"><CardSkeleton height={150} /></div>
+      </div>
+      <div className="analytics-grid">
+        <CardSkeleton height={340} />
+        <CardSkeleton height={340} />
+      </div>
+    </div>
   );
 }
 
-
-/* =========================================================
-   DASHBOARD
-========================================================= */
-
 export default function Dashboard() {
-
   const { user } = useAuth();
-
+  const reduced = useReducedMotion();
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
 
   const load = () =>
     api
       .get('/dashboard/stats')
-      .then(response => {
-        setData(response.data.data);
-      })
-      .catch(error => {
-        setError(
-          error.response?.data?.message ||
-          'Unable to load dashboard'
-        );
-      });
+      .then((response) => setData(response.data.data))
+      .catch((error) => setError(error.response?.data?.message || 'Unable to load dashboard'));
 
   useEffect(() => {
     load();
   }, []);
-
-
-  /* =======================================================
-     LOADING / ERROR
-  ======================================================= */
 
   if (error) {
     return (
@@ -138,1144 +88,322 @@ export default function Dashboard() {
       />
     );
   }
+  if (!data) return <DashboardSkeleton />;
 
-  if (!data) {
-    return (
-      <LoadingSpinner
-        label="Preparing your dashboard..."
-      />
-    );
-  }
+  const isClient = user?.role === 'CLIENT';
+  const canManageBilling = user?.role === 'ADMIN' || user?.role === 'STAFF';
+  const firstName = user?.name?.split(' ')[0] || 'there';
 
-
-  /* =======================================================
-     INVOICE STATUS DATA
-  ======================================================= */
-
+  const series = (data.revenueByMonth || []).map((m) => ({ ...m, label: formatMonth(m.month) }));
   const pie = [
+    { name: 'Paid', value: data.paidInvoices, color: STATUS_COLORS.PAID },
+    { name: 'Pending', value: data.pendingInvoices, color: STATUS_COLORS.PENDING },
+    { name: 'Overdue', value: data.overdueInvoices, color: STATUS_COLORS.OVERDUE }
+  ];
+  const pieTotal = pie.reduce((s, p) => s + p.value, 0);
+
+  const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' });
+
+  const invoiceColumns = [
     {
-      name: 'Paid',
-      value: data.paidInvoices
+      key: 'invoiceNumber',
+      label: 'Invoice',
+      render: (invoice) => (
+        <Link className="link mono" to={`/invoices/${invoice._id}`}>
+          {invoice.invoiceNumber}
+        </Link>
+      )
     },
     {
-      name: 'Pending',
-      value: data.pendingInvoices
+      key: 'client',
+      label: 'Client',
+      className: 'cell-wrap',
+      render: (invoice) => {
+        const name = invoice.client?.companyName || invoice.client?.name;
+        return (
+          <div className="person">
+            <Avatar name={name} size="sm" tone="soft" />
+            <span>{name}</span>
+          </div>
+        );
+      }
     },
+    { key: 'totalAmount', label: 'Amount', align: 'right', className: 'num', render: (invoice) => <strong>{money(invoice.totalAmount)}</strong> },
+    { key: 'status', label: 'Status', render: (invoice) => <StatusBadge status={invoice.status} /> },
     {
-      name: 'Overdue',
-      value: data.overdueInvoices
+      key: 'dueDate',
+      label: 'Due date',
+      render: (invoice) => (
+        <span className="date-cell">
+          <CalendarDays size={13} aria-hidden="true" />
+          {formatDate(invoice.dueDate)}
+        </span>
+      )
     }
   ];
 
-  const pieColors = [
-    '#34D399',
-    '#FBBF24',
-    '#FB7185'
-  ];
-
-
-  const firstName =
-    user?.name?.split(' ')[0] || 'there';
-
-
-  const isClient =
-    user?.role === 'CLIENT';
-
-  const canManageBilling =
-    user?.role === 'ADMIN' ||
-    user?.role === 'STAFF';
-
-
   return (
     <div className="dashboard-page">
-
-
-      {/* =====================================================
-          HERO
-      ===================================================== */}
-
-      <section className="dashboard-hero">
-
-        <div className="hero-glow hero-glow-one" />
-
-        <div className="hero-glow hero-glow-two" />
-
-
-        <div className="hero-content">
-
-          <div className="hero-small">
-            <Sparkles size={13} />
-            BILLING OVERVIEW
-          </div>
-
-
-          <h1>
-            Good evening,
-            <br />
-
-            <span>
-              {firstName}.
-            </span>
-          </h1>
-
-
-          <p>
-            {isClient
-              ? "Here's an overview of your invoices, payments and outstanding balance."
-              : "Here's your financial snapshot. Everything important, right where you need it."
-            }
-          </p>
-
-
-          {/* ================================================
-              ROLE BASED HERO ACTIONS
-          ================================================ */}
-
-          <div className="hero-actions">
-
-            {canManageBilling && (
-              <Link
-                to="/invoices/new"
-                className="hero-primary"
-              >
-                <Plus size={17} />
-                Create invoice
-              </Link>
-            )}
-
-
-            {canManageBilling && (
-              <Link
-                to="/reports"
-                className="hero-secondary"
-              >
-                <TrendingUp size={16} />
-                View analytics
-              </Link>
-            )}
-
-
-            {isClient && (
-              <Link
-                to="/invoices"
-                className="hero-primary"
-              >
-                <ReceiptText size={17} />
-                View my invoices
-              </Link>
-            )}
-
-
-            {isClient && (
-              <Link
-                to="/payments"
-                className="hero-secondary"
-              >
-                <CreditCard size={16} />
-                View payments
-              </Link>
-            )}
-
-          </div>
-
-        </div>
-
-
-        {/* =================================================
-            HERO VISUAL
-        ================================================= */}
-
-        <div className="hero-visual">
-
-          <div className="floating-orb orb-one" />
-
-          <div className="floating-orb orb-two" />
-
-          <div className="hero-ring ring-one" />
-
-          <div className="hero-ring ring-two" />
-
-
-          <div className="hero-finance-card">
-
-            <div className="finance-card-top">
-
-              <span>
-                <Activity size={13} />
-                {isClient
-                  ? 'Account'
-                  : 'Revenue'
-                }
-              </span>
-
-              <span className="live-dot">
-                LIVE
-              </span>
-
-            </div>
-
-
-            <div className="finance-value">
-
-              {isClient
-                ? money(data.outstandingAmount)
-                : money(data.totalRevenue)
-              }
-
-            </div>
-
-
-            <div className="finance-label">
-
-              {isClient
-                ? 'Outstanding balance'
-                : 'Total revenue generated'
-              }
-
-            </div>
-
-
-            <div className="mini-chart">
-
-              <div className="mini-line line-one" />
-
-              <div className="mini-line line-two" />
-
-              <div className="mini-line line-three" />
-
-              <div className="mini-line line-four" />
-
-              <div className="mini-line line-five" />
-
-            </div>
-
-          </div>
-
-        </div>
-
-      </section>
-
-
-      {/* =====================================================
-          STAT CARDS
-      ===================================================== */}
-
-      <section className="dashboard-stats">
-
-
-        {/* REVENUE */}
-
-        <div className="visual-stat stat-purple">
-
-          <div className="visual-stat-top">
-
-            <div className="visual-stat-icon">
-              <DollarSign size={19} />
-            </div>
-
-            <span className="stat-tag">
-              REVENUE
-            </span>
-
-          </div>
-
-
-          <div className="visual-stat-value">
-            {money(data.totalRevenue)}
-          </div>
-
-
-          <div className="visual-stat-bottom">
-
-            <span>
-              Total revenue
-            </span>
-
-            <TrendingUp size={14} />
-
-          </div>
-
-
-          <div className="stat-decoration" />
-
-        </div>
-
-
-        {/* INVOICES */}
-
-        <div className="visual-stat stat-blue">
-
-          <div className="visual-stat-top">
-
-            <div className="visual-stat-icon">
-              <FileText size={19} />
-            </div>
-
-            <span className="stat-tag">
-              INVOICES
-            </span>
-
-          </div>
-
-
-          <div className="visual-stat-value">
-
-            <AnimatedNumber
-              value={data.totalInvoices}
-            />
-
-          </div>
-
-
-          <div className="visual-stat-bottom">
-
-            <span>
-              Total invoices
-            </span>
-
-            <ReceiptText size={14} />
-
-          </div>
-
-
-          <div className="stat-decoration" />
-
-        </div>
-
-
-        {/* OUTSTANDING */}
-
-        <div className="visual-stat stat-cyan">
-
-          <div className="visual-stat-top">
-
-            <div className="visual-stat-icon">
-              <Clock3 size={19} />
-            </div>
-
-            <span className="stat-tag">
-              OUTSTANDING
-            </span>
-
-          </div>
-
-
-          <div className="visual-stat-value">
-
-            {money(data.outstandingAmount)}
-
-          </div>
-
-
-          <div className="visual-stat-bottom">
-
-            <span>
-              Awaiting payment
-            </span>
-
-            <Clock3 size={14} />
-
-          </div>
-
-
-          <div className="stat-decoration" />
-
-        </div>
-
-
-        {/* OVERDUE */}
-
-        <div className="visual-stat stat-coral">
-
-          <div className="visual-stat-top">
-
-            <div className="visual-stat-icon">
-              <AlertTriangle size={19} />
-            </div>
-
-            <span className="stat-tag">
-              ATTENTION
-            </span>
-
-          </div>
-
-
-          <div className="visual-stat-value">
-
-            <AnimatedNumber
-              value={data.overdueInvoices}
-            />
-
-          </div>
-
-
-          <div className="visual-stat-bottom">
-
-            <span>
-              Overdue invoices
-            </span>
-
-            <AlertTriangle size={14} />
-
-          </div>
-
-
-          <div className="stat-decoration" />
-
-        </div>
-
-
-        {/* ================================================
-            ADMIN / STAFF ONLY
-        ================================================ */}
-
-        {!isClient && (
+      <PageHeader
+        eyebrow={today}
+        title={
           <>
+            {greeting()}, <span className="accent">{firstName}.</span>
+          </>
+        }
+        description={
+          isClient
+            ? 'Here’s an overview of your invoices, payments and outstanding balance.'
+            : 'Here’s your financial snapshot. Everything important, right where you need it.'
+        }
+        actions={
+          canManageBilling ? (
+            <>
+              <Button variant="secondary" to="/reports" icon={TrendingUp}>View analytics</Button>
+              <Button to="/invoices/new" icon={Plus}>Create invoice</Button>
+            </>
+          ) : (
+            <>
+              <Button variant="secondary" to="/payments" icon={CreditCard}>View payments</Button>
+              <Button to="/invoices" icon={ReceiptText}>View my invoices</Button>
+            </>
+          )
+        }
+      />
 
-
-            {/* CLIENTS */}
-
-            <div className="visual-stat stat-green">
-
-              <div className="visual-stat-top">
-
-                <div className="visual-stat-icon">
-                  <Users size={19} />
-                </div>
-
-                <span className="stat-tag">
-                  CLIENTS
-                </span>
-
-              </div>
-
-
-              <div className="visual-stat-value">
-
-                <AnimatedNumber
-                  value={data.totalClients}
-                />
-
-              </div>
-
-
-              <div className="visual-stat-bottom">
-
-                <span>
-                  Active customers
-                </span>
-
-                <Users size={14} />
-
-              </div>
-
-
-              <div className="stat-decoration" />
-
+      {/* KPI grid */}
+      <section className="kpi-grid" aria-label="Key figures">
+        <div className={`span-6 ${isClient ? 'row-2' : ''}`}>
+          <div className="kpi-feature">
+            <div className="kpi-feature-top">
+              <span className="kpi-feature-label">{isClient ? 'Outstanding balance' : 'Total revenue'}</span>
+              <span className="icon-box on-dark" aria-hidden="true">
+                {isClient ? <Clock3 size={17} /> : <Wallet size={17} />}
+              </span>
             </div>
-
-
-            {/* PRODUCTS */}
-
-            <div className="visual-stat stat-orange">
-
-              <div className="visual-stat-top">
-
-                <div className="visual-stat-icon">
-                  <Package size={19} />
-                </div>
-
-                <span className="stat-tag">
-                  PRODUCTS
-                </span>
-
-              </div>
-
-
-              <div className="visual-stat-value">
-
-                <AnimatedNumber
-                  value={data.totalProducts}
-                />
-
-              </div>
-
-
-              <div className="visual-stat-bottom">
-
-                <span>
-                  Products & services
-                </span>
-
-                <Package size={14} />
-
-              </div>
-
-
-              <div className="stat-decoration" />
-
+            <div className="kpi-feature-value">
+              <AnimatedNumber value={isClient ? data.outstandingAmount : data.totalRevenue} format={money} duration={1100} />
             </div>
+            <div className="kpi-feature-sub">
+              {isClient ? 'Awaiting payment across your invoices' : `Collected from successful payments${series.length ? ` over ${series.length} ${series.length === 1 ? 'month' : 'months'}` : ''}`}
+            </div>
+            {!isClient && <Sparkline values={series.map((s) => s.revenue)} />}
+          </div>
+        </div>
 
+        {isClient ? (
+          <>
+            <div className="span-6"><StatCard index={1} label="Total paid" value={data.totalRevenue} format={money} icon={Wallet} tone="success" hint="Payments you’ve made" /></div>
+            <div className="span-3"><StatCard index={2} label="Invoices" value={data.totalInvoices} icon={FileText} hint="Total issued to you" /></div>
+            <div className="span-3"><StatCard index={3} label="Overdue" value={data.overdueInvoices} icon={AlertTriangle} tone={data.overdueInvoices ? 'danger' : 'brand'} hint={data.overdueInvoices ? 'Needs attention' : 'Nothing overdue'} /></div>
+          </>
+        ) : (
+          <>
+            <div className="span-3"><StatCard index={1} label="Outstanding" value={data.outstandingAmount} format={money} icon={Clock3} tone="warning" hint="Awaiting payment" /></div>
+            <div className="span-3"><StatCard index={2} label="Overdue" value={data.overdueInvoices} icon={AlertTriangle} tone={data.overdueInvoices ? 'danger' : 'brand'} hint={data.overdueInvoices ? 'Invoices past due' : 'Nothing overdue'} /></div>
+            <div className="span-4"><StatCard index={3} label="Invoices" value={data.totalInvoices} icon={FileText} hint="Total created" /></div>
+            <div className="span-4"><StatCard index={4} label="Clients" value={data.totalClients} icon={Users} hint="Active customers" /></div>
+            <div className="span-4"><StatCard index={5} label="Products & services" value={data.totalProducts} icon={Package} hint="In your catalog" /></div>
           </>
         )}
-
       </section>
 
-
-      {/* =====================================================
-          ANALYTICS
-      ===================================================== */}
-
+      {/* Analytics */}
       <section className="analytics-grid">
-
-
-        {/* =================================================
-            REVENUE CHART
-        ================================================= */}
-
-        <div className="visual-panel revenue-panel">
-
-          <div className="visual-panel-head">
-
+        <Reveal className="panel chart-card">
+          <div className="panel-head">
             <div>
-
-              <div className="section-label">
-                FINANCIAL PERFORMANCE
-              </div>
-
-              <h2>
-                Revenue overview
-              </h2>
-
-              <p>
-                Successful payments across your billing workspace.
-              </p>
-
+              <div className="section-label">Financial performance</div>
+              <h2>Revenue overview</h2>
+              <p>Successful payments across your billing workspace.</p>
             </div>
-
-
             {canManageBilling && (
-              <Link
-                to="/reports"
-                className="round-arrow"
-              >
+              <Link to="/reports" className="round-arrow" aria-label="Open reports">
                 <ArrowRight size={17} />
               </Link>
             )}
-
           </div>
-
-
-          <div className="revenue-total">
-
-            {money(data.totalRevenue)}
-
-            <span>
-              total revenue
-            </span>
-
-          </div>
-
-
           <div className="big-chart">
-
-            <ResponsiveContainer
-              width="100%"
-              height="100%"
-            >
-
-              <AreaChart
-                data={data.revenueByMonth}
-                margin={{
-                  top: 10,
-                  right: 10,
-                  left: -20,
-                  bottom: 0
-                }}
-              >
-
-                <defs>
-
-                  <linearGradient
-                    id="revenueGradient"
-                    x1="0"
-                    y1="0"
-                    x2="0"
-                    y2="1"
-                  >
-
-                    <stop
-                      offset="0%"
-                      stopColor="#8B5CF6"
-                      stopOpacity={0.45}
-                    />
-
-                    <stop
-                      offset="70%"
-                      stopColor="#6366F1"
-                      stopOpacity={0.12}
-                    />
-
-                    <stop
-                      offset="100%"
-                      stopColor="#6366F1"
-                      stopOpacity={0}
-                    />
-
-                  </linearGradient>
-
-                  <filter id="glow">
-
-                    <feGaussianBlur
-                      stdDeviation="4"
-                      result="coloredBlur"
-                    />
-
-                    <feMerge>
-
-                      <feMergeNode
-                        in="coloredBlur"
-                      />
-
-                      <feMergeNode
-                        in="SourceGraphic"
-                      />
-
-                    </feMerge>
-
-                  </filter>
-
-                </defs>
-
-
-                <XAxis
-                  dataKey="month"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{
-                    fill: '#94A3B8',
-                    fontSize: 10
-                  }}
-                />
-
-
-                <YAxis
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{
-                    fill: '#94A3B8',
-                    fontSize: 9
-                  }}
-                  tickFormatter={value =>
-                    `₹${Math.round(value / 1000)}k`
-                  }
-                />
-
-
-                <Tooltip
-                  contentStyle={{
-                    borderRadius: 12,
-                    border: '1px solid #E5E7EB',
-                    boxShadow:
-                      '0 15px 40px rgba(15,23,42,.12)',
-                    fontSize: 11
-                  }}
-                  formatter={value => [
-                    money(value),
-                    'Revenue'
-                  ]}
-                />
-
-
-                <Area
-                  type="monotone"
-                  dataKey="revenue"
-                  stroke="#7C5CFC"
-                  fill="url(#revenueGradient)"
-                  strokeWidth={3}
-                  filter="url(#glow)"
-                  animationDuration={1400}
-                  animationEasing="ease-out"
-                />
-
-              </AreaChart>
-
-            </ResponsiveContainer>
-
+            {series.length ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={series} margin={{ top: 10, right: 8, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="revenueFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#0e7c6b" stopOpacity={0.28} />
+                      <stop offset="100%" stopColor="#0e7c6b" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid vertical={false} stroke="#e8e5da" strokeDasharray="3 4" />
+                  <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#5f6c68', fontSize: 12 }} dy={6} />
+                  <YAxis axisLine={false} tickLine={false} width={52} tick={{ fill: '#5f6c68', fontSize: 12 }} tickFormatter={compactMoney} />
+                  <Tooltip
+                    cursor={{ stroke: '#0e7c6b', strokeWidth: 1, strokeDasharray: '3 3' }}
+                    content={<ChartTooltip formatter={(v) => money(v)} />}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="revenue"
+                    name="Revenue"
+                    stroke="#0e7c6b"
+                    fill="url(#revenueFill)"
+                    strokeWidth={2.5}
+                    activeDot={{ r: 5, strokeWidth: 2, stroke: '#fff' }}
+                    isAnimationActive={!reduced}
+                    animationDuration={1100}
+                    animationEasing="ease-out"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <EmptyState icon={Banknote} title="No revenue yet." description="Once payments are recorded, your monthly revenue will chart here." />
+            )}
           </div>
+        </Reveal>
 
-        </div>
-
-
-        {/* =================================================
-            INVOICE STATUS
-        ================================================= */}
-
-        <div className="visual-panel status-panel">
-
-          <div className="visual-panel-head">
-
+        <Reveal className="panel chart-card" delay={80}>
+          <div className="panel-head">
             <div>
-
-              <div className="section-label">
-                INVOICE HEALTH
+              <div className="section-label">Invoice health</div>
+              <h2>Invoice status</h2>
+              <p>Current portfolio breakdown.</p>
+            </div>
+          </div>
+          {pieTotal ? (
+            <>
+              <div className="status-chart">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={pie}
+                      dataKey="value"
+                      innerRadius="68%"
+                      outerRadius="94%"
+                      paddingAngle={3}
+                      stroke="none"
+                      cornerRadius={4}
+                      isAnimationActive={!reduced}
+                      animationBegin={150}
+                      animationDuration={900}
+                    >
+                      {pie.map((item) => (
+                        <Cell key={item.name} fill={item.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip content={<ChartTooltip formatter={(v) => `${v} invoices`} />} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="status-center">
+                  <strong>{pieTotal}</strong>
+                  <span>Tracked</span>
+                </div>
               </div>
-
-              <h2>
-                Invoice status
-              </h2>
-
-              <p>
-                Current portfolio breakdown.
-              </p>
-
-            </div>
-
-          </div>
-
-
-          <div className="status-chart">
-
-            <ResponsiveContainer
-              width="100%"
-              height="100%"
-            >
-
-              <PieChart>
-
-                <Pie
-                  data={pie}
-                  dataKey="value"
-                  innerRadius={78}
-                  outerRadius={105}
-                  paddingAngle={5}
-                  stroke="none"
-                  animationBegin={200}
-                  animationDuration={1200}
-                >
-
-                  {pie.map(
-                    (item, index) => (
-                      <Cell
-                        key={item.name}
-                        fill={pieColors[index]}
-                      />
-                    )
-                  )}
-
-                </Pie>
-
-                <Tooltip />
-
-              </PieChart>
-
-            </ResponsiveContainer>
-
-
-            <div className="status-center">
-
-              <strong>
-                {data.totalInvoices}
-              </strong>
-
-              <span>
-                TOTAL
-              </span>
-
-            </div>
-
-          </div>
-
-
-          <div className="status-list">
-
-            {pie.map(
-              (item, index) => (
-
-                <div
-                  className="status-row"
-                  key={item.name}
-                >
-
-                  <div className="status-name">
-
-                    <i
-                      style={{
-                        background:
-                          pieColors[index]
-                      }}
-                    />
-
-                    <span>
+              <ul className="status-list">
+                {pie.map((item) => (
+                  <li className="status-row" key={item.name}>
+                    <span className="status-name">
+                      <i style={{ background: item.color }} />
                       {item.name}
                     </span>
-
-                  </div>
-
-
-                  <strong>
-                    {item.value}
-                  </strong>
-
-                </div>
-
-              )
-            )}
-
-          </div>
-
-        </div>
-
+                    <strong>{item.value}</strong>
+                  </li>
+                ))}
+              </ul>
+              <p className="chart-note">Draft and cancelled invoices aren’t counted here.</p>
+            </>
+          ) : (
+            <EmptyState icon={FileText} title="No invoices yet." description="Your paid, pending and overdue split will appear here." />
+          )}
+        </Reveal>
       </section>
 
-
-      {/* =====================================================
-          QUICK ACTIONS
-      ===================================================== */}
-
-      <section className="quick-actions">
-
-
-        {/* ADMIN / STAFF */}
-
-        {canManageBilling && (
-          <Link
-            to="/invoices/new"
-            className="quick-action purple"
-          >
-
-            <div className="quick-action-icon">
-              <ReceiptText size={20} />
-            </div>
-
+      {/* Activity */}
+      <section className="activity-grid">
+        <Reveal className="panel flush">
+          <div className="panel-head padded">
             <div>
-
-              <strong>
-                Create invoice
-              </strong>
-
-              <span>
-                Generate a new bill
-              </span>
-
+              <div className="section-label">Recent activity</div>
+              <h2>Recent invoices</h2>
+              <p>{isClient ? 'Your latest billing activity.' : 'Latest billing activity across your workspace.'}</p>
             </div>
-
-            <ArrowRight size={17} />
-
-          </Link>
-        )}
-
-
-        {canManageBilling && (
-          <Link
-            to="/clients"
-            className="quick-action blue"
-          >
-
-            <div className="quick-action-icon">
-              <UserPlus size={20} />
-            </div>
-
-            <div>
-
-              <strong>
-                Add client
-              </strong>
-
-              <span>
-                Add a new customer
-              </span>
-
-            </div>
-
-            <ArrowRight size={17} />
-
-          </Link>
-        )}
-
-
-        {/* CLIENT / EVERYONE */}
-
-        <Link
-          to="/payments"
-          className="quick-action green"
-        >
-
-          <div className="quick-action-icon">
-            <CreditCard size={20} />
+            <Link to="/invoices" className="view-all">
+              View all <ArrowRight size={15} />
+            </Link>
           </div>
+          <DataTable
+            columns={invoiceColumns}
+            rows={data.recentInvoices}
+            caption="Recent invoices"
+            empty={<EmptyState icon={ReceiptText} title="No recent invoices yet." />}
+          />
+        </Reveal>
 
-          <div>
-
-            <strong>
-              Payments
-            </strong>
-
-            <span>
-              Track recent payments
-            </span>
-
-          </div>
-
-          <ArrowRight size={17} />
-
-        </Link>
-
-
-        {isClient && (
-          <Link
-            to="/invoices"
-            className="quick-action purple"
-          >
-
-            <div className="quick-action-icon">
-              <ReceiptText size={20} />
+        <div className="side-stack">
+          <Reveal className="panel" delay={60}>
+            <div className="panel-head">
+              <div>
+                <div className="section-label">Shortcuts</div>
+                <h2>Quick actions</h2>
+              </div>
             </div>
-
-            <div>
-
-              <strong>
-                My invoices
-              </strong>
-
-              <span>
-                View your billing history
-              </span>
-
-            </div>
-
-            <ArrowRight size={17} />
-
-          </Link>
-        )}
-
-      </section>
-
-
-      {/* =====================================================
-          RECENT INVOICES
-      ===================================================== */}
-
-      <section className="visual-panel recent-panel">
-
-
-        <div className="visual-panel-head">
-
-          <div>
-
-            <div className="section-label">
-              RECENT ACTIVITY
-            </div>
-
-            <h2>
-              Recent invoices
-            </h2>
-
-            <p>
-              {isClient
-                ? 'Your latest billing activity.'
-                : 'Latest billing activity across your workspace.'
-              }
-            </p>
-
-          </div>
-
-
-          <Link
-            to="/invoices"
-            className="view-all"
-          >
-            View all
-
-            <ArrowRight size={15} />
-
-          </Link>
-
-        </div>
-
-
-        <div className="table-wrap">
-
-          <table className="premium-table">
-
-            <thead>
-
-              <tr>
-
-                <th>
-                  Invoice
-                </th>
-
-                <th>
-                  Client
-                </th>
-
-                <th>
-                  Amount
-                </th>
-
-                <th>
-                  Status
-                </th>
-
-                <th>
-                  Due date
-                </th>
-
-              </tr>
-
-            </thead>
-
-
-            <tbody>
-
-              {data.recentInvoices.length > 0 ? (
-
-                data.recentInvoices.map(
-                  (invoice, index) => (
-
-                    <tr
-                      key={invoice._id}
-                      className="animated-row"
-                      style={{
-                        animationDelay:
-                          `${index * 70}ms`
-                      }}
-                    >
-
-                      <td>
-
-                        <Link
-                          className="invoice-id"
-                          to={`/invoices/${invoice._id}`}
-                        >
-
-                          <span className="invoice-icon">
-
-                            <ReceiptText
-                              size={14}
-                            />
-
-                          </span>
-
-                          {invoice.invoiceNumber}
-
-                        </Link>
-
-                      </td>
-
-
-                      <td>
-
-                        <div className="client-cell">
-
-                          <span className="client-avatar">
-
-                            {(
-                              invoice.client
-                                ?.companyName ||
-                              invoice.client?.name ||
-                              'C'
-                            )
-                              .charAt(0)
-                              .toUpperCase()}
-
-                          </span>
-
-
-                          <span>
-
-                            {
-                              invoice.client
-                                ?.companyName ||
-                              invoice.client?.name
-                            }
-
-                          </span>
-
-                        </div>
-
-                      </td>
-
-
-                      <td>
-
-                        <strong className="amount">
-
-                          {money(
-                            invoice.totalAmount
-                          )}
-
-                        </strong>
-
-                      </td>
-
-
-                      <td>
-
-                        <StatusBadge
-                          status={
-                            invoice.status
-                          }
-                        />
-
-                      </td>
-
-
-                      <td>
-
-                        <div className="date-cell">
-
-                          <CalendarDays
-                            size={13}
-                          />
-
-                          {new Date(
-                            invoice.dueDate
-                          ).toLocaleDateString(
-                            'en-IN'
-                          )}
-
-                        </div>
-
-                      </td>
-
-                    </tr>
-
-                  )
-                )
-
-              ) : (
-
-                <tr>
-
-                  <td
-                    colSpan="5"
-                    className="dashboard-empty"
-                  >
-
-                    <ReceiptText
-                      size={30}
-                    />
-
-                    <span>
-                      No recent invoices yet.
-                    </span>
-
-                  </td>
-
-                </tr>
-
+            <div className="quick-list">
+              {canManageBilling && (
+                <Link to="/invoices/new" className="quick-action">
+                  <span className="quick-action-icon"><ReceiptText size={18} /></span>
+                  <span><strong>Create invoice</strong><small>Generate a new bill</small></span>
+                  <ArrowRight size={16} />
+                </Link>
               )}
+              {canManageBilling && (
+                <Link to="/clients" className="quick-action">
+                  <span className="quick-action-icon"><UserPlus size={18} /></span>
+                  <span><strong>Add client</strong><small>Add a new customer</small></span>
+                  <ArrowRight size={16} />
+                </Link>
+              )}
+              {isClient && (
+                <Link to="/invoices" className="quick-action">
+                  <span className="quick-action-icon"><ReceiptText size={18} /></span>
+                  <span><strong>My invoices</strong><small>View your billing history</small></span>
+                  <ArrowRight size={16} />
+                </Link>
+              )}
+              <Link to="/payments" className="quick-action">
+                <span className="quick-action-icon"><CreditCard size={18} /></span>
+                <span><strong>Payments</strong><small>Track recent payments</small></span>
+                <ArrowRight size={16} />
+              </Link>
+            </div>
+          </Reveal>
 
-            </tbody>
-
-          </table>
-
+          <Reveal className="panel" delay={120}>
+            <div className="panel-head">
+              <div>
+                <div className="section-label">Cash in</div>
+                <h2>Recent payments</h2>
+              </div>
+            </div>
+            {data.recentPayments?.length ? (
+              <ul className="payment-list">
+                {data.recentPayments.slice(0, 5).map((p) => (
+                  <li key={p._id}>
+                    <span className="payment-dot" aria-hidden="true"><Banknote size={15} /></span>
+                    <span className="payment-meta">
+                      <strong>{p.client?.companyName || p.client?.name || 'Payment'}</strong>
+                      <small>
+                        {p.invoice?.invoiceNumber ? `${p.invoice.invoiceNumber} · ` : ''}
+                        {humanize(p.paymentMethod)} · {formatDate(p.paymentDate)}
+                      </small>
+                    </span>
+                    <strong className="payment-amount">+{money(p.amount)}</strong>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="muted small">No payments recorded yet.</p>
+            )}
+          </Reveal>
         </div>
-
       </section>
-
     </div>
   );
 }
