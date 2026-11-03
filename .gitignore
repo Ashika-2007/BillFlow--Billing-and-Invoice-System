@@ -22,3 +22,5 @@ build/
 *.log
 npm-debug.log*
 .DS_Store
+# Database backups
+backups/
