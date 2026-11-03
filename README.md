@@ -1,55 +1,82 @@
-# Billing and Invoice System
+# BillFlow – Billing and Invoice Management System
 
-A full-stack MERN billing platform for small and medium businesses. It includes JWT authentication, backend-enforced RBAC, client/product/invoice/payment management, server-side financial calculations, reports, notifications, invoice PDF generation, reminders, and BillBot with database-grounded fallback answers.
+A full-stack billing and invoice management platform built using the MERN stack to simplify business operations and financial management.
 
-## Stack
-- React + Vite + JavaScript
-- React Router, Axios, Recharts, Lucide React, jsPDF
-- Node.js + Express.js
-- MongoDB + Mongoose
-- JWT + bcryptjs
-- Optional OpenAI-compatible AI provider on the backend only
+## Live Demo
 
-## Structure
-`server/` contains models, controllers, routes, services, middleware, seed data and utilities. `client/` contains the React application, reusable components, layouts, pages, context and API services.
+- **Website:** https://bill-flow-billing-and-invoice-syste.vercel.app
+- **GitHub:** https://github.com/Ashika-2007/BillFlow--Billing-and-Invoice-System
 
-## Requirements
-- Node.js 18+
-- MongoDB running locally
+## Features
 
-## Setup
-1. Copy `server/.env.example` to `server/.env` and set `JWT_SECRET`. Optionally set `AI_API_KEY`.
-2. Copy `client/.env.example` to `client/.env`.
-3. Start MongoDB.
-4. In `server`: `npm install`, then `npm run seed`, then `npm run dev`.
-5. In `client`: `npm install`, then `npm run dev`.
-6. Open http://localhost:5173.
+- Secure authentication with JWT.
+- Role-based access for Admin, Staff and Clients.
+- Client management.
+- Product and service management.
+- Invoice creation and PDF generation.
+- Payment tracking.
+- Dashboard and revenue analytics.
+- Financial reports and notifications.
+- AI-powered chatbot (BillBot).
+- GST and tax configuration.
 
-## Demo credentials
-- Admin: `admin@billing.com` / `Admin@123`
-- Staff: `staff@billing.com` / `Staff@123`
-- Client: `client@billing.com` / `Client@123`
+## Tech Stack
 
-## API overview
-- `/api/auth/*` authentication
-- `/api/clients/*` client management
-- `/api/products/*` product/service management
-- `/api/invoices/*` invoices and status refresh
-- `/api/payments/*` payments
-- `/api/dashboard/*` dashboard data
-- `/api/reports/*` analytics
-- `/api/notifications/*` notifications and reminders
-- `/api/settings/*` tax and admin user controls
-- `/api/chatbot/*` BillBot and history
+- **Frontend:** React.js, Vite, JavaScript, CSS
+- **Backend:** Node.js, Express.js
+- **Database:** MongoDB Atlas, Mongoose
+- **Authentication:** JWT, bcrypt
+- **Libraries:** Axios, Recharts, jsPDF, Lucide React
+- **Deployment:** Vercel, Render
 
-## BillBot
-The server first authenticates the user and role, queries MongoDB within the allowed scope, calculates billing values on the server, and then optionally sends verified data to the configured AI provider. If no AI provider is configured or it fails, structured billing logic answers common questions without fabricating numbers. No AI key is used by the React app.
+## Run Locally
 
-## PDF
-Invoice PDFs are generated client-side with jsPDF from the authenticated invoice details returned by the API. The invoice view also provides a print-friendly browser print action.
+**1. Clone the repository**
 
-## Security notes
-Never commit `.env`. Production deployments should use a strong JWT secret, HTTPS, restrictive CORS, rate limiting, secure cookie/token strategy as appropriate for the deployment model, and a production MongoDB deployment.
+```bash
+git clone https://github.com/Ashika-2007/BillFlow--Billing-and-Invoice-System.git
+cd BillFlow--Billing-and-Invoice-System
+```
 
-## Future enhancements
-Email delivery, payment gateway integration, audit logs, recurring invoices, configurable company branding, scheduled background jobs, and richer AI intent classification can be added without changing the core architecture.
+**2. Backend setup**
+
+```bash
+cd server
+npm install
+```
+
+Configure the `.env` file using `.env.example`, then run:
+
+```bash
+npm run dev
+```
+
+**3. Frontend setup**
+
+```bash
+cd client
+npm install
+```
+
+Configure `VITE_API_URL` in the frontend `.env` file, then run:
+
+```bash
+npm run dev
+```
+
+## Deployment
+
+- **Frontend:** Vercel
+- **Backend:** Render
+- **Database:** MongoDB Atlas
+
+## Author
+
+**Ashika Pushparaj**  
+Computer Science and Engineering
+
+[GitHub Profile](https://github.com/Ashika-2007)
+
+---
+
+*Developed as an academic full-stack web application.*
